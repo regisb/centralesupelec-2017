@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="description" content="Heroes &amp; Villains of AI">
+        <meta name="author" content="Régis Behmo">
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+
+        <title>Calculs distribués avec Apache Spark | CentraleSupelec, 6 novembre 2017</title>
+        <link rel="stylesheet" href="static/css/reveal.css">
+        <link rel="stylesheet" href="static/css/theme/night.css">
+        <link rel="stylesheet" href="static/css/font-awesome.min.css">
+        <link rel="stylesheet" href="static/css/highlightjs/monokai.css">
+
+        <!-- Printing and PDF exports -->
+        <script>
+            var link = document.createElement( 'link' );
+            link.rel = 'stylesheet';
+            link.type = 'text/css';
+            link.href = window.location.search.match( /print-pdf/gi ) ? 'static/css/print/pdf.css' : 'static/css/print/paper.css';
+            document.getElementsByTagName( 'head' )[0].appendChild( link );
+        </script>
+        <style>
+            .orange, h1.orange, h2.orange, h3.orange {
+                color: #e7ad52;
+            }
+            .reveal table th, .reveal table td {
+                text-align: center;
+            }
+            .reveal table th:not(:last-child), .reveal table td:not(:last-child) {
+                border-right: 1px solid white
+            }
+            .reveal table tr.fragment:not(.visible) td {
+                border: none;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div class="reveal">
+            <div class="slides">
+                <section>
+                    <h2>Calculs Distribués avec Apache Spark</h2>
+                    <p><a href="https://minutebutterfly.com">Régis Behmo</a><br>
+                    <a href="https://github.com/regisb"><i class="fa fa-github"></i></a>
+                    <a href="https://stackoverflow.com/users/356528/r%c3%a9gis-b?tab=profile"><i class="fa fa-stack-overflow"></i></a>
+                    regisb<br></p>
+                    <p>CentraleSupelec, 6 novembre 2017</p>
+                    <p>Slides: <a href="https://regisb.github.io/centralesupelec-2017">https://regisb.github.io/centralesupelec-2017</a></p>
+                </section>
+
+                <section></section>
+
+                <section>
+                    <h1>Apache Spark</h1>
+                    <p>Slides: <a href="https://regisb.github.io/centralesupelec-2017">https://regisb.github.io/centralesupelec-2017</a></p>
+                </section>
+
+                <section>
+                    <table>
+                        <tr class="orange">
+                            <th>Hadoop</th>
+                            <th>Spark</th>
+                        </tr>
+                        <tr class="fragment">
+                            <td colspan="2">Java Virtual Machine (JVM)</td>
+                        </tr>
+                        <tr class="fragment">
+                            <td>Write to disk (HDFS)</td>
+                            <td>In-memory</td>
+                        </tr>
+                        <tr class="fragment">
+                            <td>Native data structures</td>
+                            <td>Resilient Distributed Datasets (RDD)</td>
+                        </tr>
+                        <tr class="fragment">
+                            <td>Java (+ Hadoop streaming)</td>
+                            <td>Java + Scala + <span class="orange">Python</span> + R</td>
+                        </tr>
+                        <tr class="fragment">
+                            <td>-</td>
+                            <td><span class="orange">Python</span> + Scala shell</td>
+                        </tr>
+                        <tr class="fragment">
+                            <td>Pluggable SQL (Hive)</td>
+                            <td>Spark SQL (native)</td>
+                        </tr>
+                        <tr class="fragment">
+                            <td>Pluggable ML</td>
+                            <td>Spark ML (native)</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h3>Installation</h3>
+                    <ul>
+                        <li>Java Runtime Environment (JRE)
+                            <pre><code class="shell">$ sudo apt-get install default-jre
+$ java -version
+openjdk version "1.8.0_131"
+OpenJDK Runtime Environment (build 1.8.0_131-8u131-b11-2ubuntu1.16.04.3-b11)
+OpenJDK 64-Bit Server VM (build 25.131-b11, mixed mode)</code></pre>
+                        </li>
+                        <li>Python 3
+                            <pre><code class="shell">$ sudo apt-get install python3</code></pre>
+                        </li>
+                        <li>Spark download (2.2.0 pre-built for Hadoop 2.7)
+                            <pre><code class="shell">$ wget http://apache.crihan.fr/dist/spark/spark-2.2.0/spark-2.2.0-bin-hadoop2.7.tgz
+$ tar xzf spark-2.2.0-bin-hadoop2.7.tgz</code></pre>
+                        </li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h3>Installation (from VM)</h3>
+                    <ul>
+                        <li>Go to Google Drive/Spark</li>
+                        <li>Download spark-vm.tar.gz (1.2 Gb)</li>
+                        <li>Uncompress</li>
+                        <li>README</li>
+                        <li><pre><code>$ vagrant up</code></pre></li>
+                        <li><pre><code>$ vagrant ssh</code></pre></li>
+                    </ul>
+
+                </section>
+
+                <section>
+                    <h3>Data download</h3>
+                    <pre><code class="shell">$ wget http://classics.mit.edu/Homer/iliad.mb.txt
+$ wget http://classics.mit.edu/Homer/odyssey.mb.txt</code></pre>
+                </section>
+
+                <section>
+                    <h3>Python Shell</h3>
+                    <pre><code class="shell">$ ./bin/pyspark
+Python 2.7.12 (default, Nov 19 2016, 06:48:10)
+>>></code></pre>
+                    <div class="fragment"><h3 class="orange">Python 3 Shell</h3>
+                    <pre><code class="shell">$ PYSPARK_PYTHON=python3 ./bin/pyspark
+Python 3.5.2 (default, Sep 14 2017, 22:51:06)
+>>></code></pre></div>
+                </section>
+                <section>
+                    <div><h3>iPython Shell</h3>
+                    <pre><code class="shell">$ pip install --user ipython==5.5.0</code></pre>
+                    <pre><code class="shell">$ PYSPARK_PYTHON=ipython ./bin/pyspark
+Python 2.7.12 (default, Nov 19 2016, 06:48:10)
+In [1]: </code></pre></div>
+                    <div><h3>iPython 3 Shell</h3>
+                    <pre><code class="shell">$ pip3 install --user ipython</code></pre>
+                    <pre><code class="shell">$ PYSPARK_PYTHON=ipython3 ./bin/pyspark
+Python 3.5.2 (default, Sep 14 2017, 22:51:06)
+In [1]: </code></pre></div>
+                </section>
+
+
+                <section>
+                    <h3>Your first resilient distributed dataset (RDD)</h3>
+                    <pre class="fragment"><code class="python">>>> rdd = sc.parallelize(range(0, 10))</code></pre>
+                    <pre class="fragment"><code class="python">>>> rdd.collect()
+[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]</code></pre>
+                    <pre class="fragment"><code class="python">>>> rdd.count()
+10</code></pre>
+                    <pre class="fragment"><code class="python">>>> rdd.first()
+0</code></pre>
+                    <pre class="fragment"><code class="python">>>> rdd.map(lambda x: x*x).collect()
+[0, 1, 4, 9, 16, 25, 36, 49, 64, 81]</code></pre>
+                </section>
+
+                <section>
+                    <h2>Wordcount! \o/</h2>
+                    <pre class="fragment"><code class="python">>>> rdd = sc.textFile("iliad.mb.txt")</code></pre>
+                    <pre class="fragment"><code class="python">>>> rdd.flatMap(lambda sentence: sentence.split())\
+    .map(lambda word: (word, 1))\
+    .reduceByKey(lambda v1, v2: v1 + v2)\
+    .sortBy(lambda wc: -wc[1])\
+    .take(10)</code></pre>
+                    <pre class="fragment"><code class="python">[('the', 9573), ('and', 6481), ('of', 5584), ('to', 3291), ('his', 2487), ('he', 2448), ('in', 2184), ('a', 1789), ('with', 1593), ('that', 1434)]</code></pre>
+                    <!--<pre>>>> rdd.count()-->
+<!--13444</pre>-->
+                    <!--<pre>>>> rdd.first()-->
+<!--'Provided by The Internet Classics Archive.'</pre>-->
+                    <!--<pre>>>> rdd.flatMap(lambda sentence: sentence.split()).first()-->
+<!--'Provided'</pre>-->
+                </section>
+
+                <section>
+                    <h3>Documentation</h3>
+                    <a href="https://spark.apache.org/docs/latest/rdd-programming-guide.html">https://spark.apache.org/docs/latest/rdd-programming-guide.html</a>
+                </section>
+
+                <section>
+                    <h3>RDD operations</h3>
+                    <table>
+                        <tr class="orange">
+                            <th>Transformations</th>
+                            <th>Actions</th>
+                        </tr>
+                        <tr class="fragment">
+                            <td>map, distinct, filter, reduceByKey, sortByKey, join...</td>
+                            <td>reduce, collect, count, first, take...</td>
+                        </tr>
+                        <tr class="fragment">
+                            <td colspan="2">Arguments: 1 or more RDD</td>
+                        </tr>
+                        <tr class="fragment">
+                            <td>Returns: RDD</td>
+                            <td>Returns: not an RDD </td>
+                        </tr>
+                        <tr class="fragment">
+                            <td>Lazy evaluation</td>
+                            <td>Immediate evaluation</td>
+                        </tr>
+                        <tr class="fragment">
+                            <td>Sometimes shuffle</td>
+                            <td>Shuffle necessary</td>
+                        </tr>
+                    </table>
+                </section>
+
+                <section>
+                    <h3>Directed Acyclic Graph (DAG)</h3>
+                    <img src="static/img/dag.svg" alt="dag">
+                </section>
+
+                <section>
+                    <h3>Running a script</h3>
+                    <pre><code class="shell">$ vim wordcount.py</code></pre>
+                    <pre><code class="python">from pyspark import SparkContext
+
+sc = SparkContext()
+rdd = sc.textFile("iliad.mb.txt")
+result = rdd.flatMap(lambda sentence: sentence.split())\
+    .map(lambda word: (word, 1))\
+    .reduceByKey(lambda v1, v2: v1 + v2)\
+    .sortBy(lambda wc: -wc[1])\
+    .take(10)
+
+print(result)
+</code></pre>
+                    <pre><code class="shell">$ ./spark-2.2.0-bin-hadoop2.7/bin/spark-submit ./wordcount.py</code></pre>
+                </section>
+                <section>
+                    <h3>Advanced: Debugging with Spark UI</h3>
+                    <p><a href="http://localhost:4040">http://localhost:4040</a></p>
+                    <img src="static/img/sparkui.png" alt="Spark UI">
+
+                    <div class="fragment">
+                        <p>Pro tip: append this to your script</p>
+                        <pre class="fragment"><code class="python">input("Access http://localhost:4040 to debug. Then press ctrl+c to exit")</code></pre>
+                    </div>
+                </section>
+
+                <section>
+                    <h3>Pro tip: reduce Spark logging level</h3>
+                    <pre><code class="shell">$ cd spark-2.2.0-bin-hadoop2.7/conf/
+$ cp log4j.properties.template log4j.properties
+$ vim log4j.properties
+...
+log4j.rootCategory=ERROR, console
+...</code></pre>
+                </section>
+
+                <section>
+                    <h3>TODO (starter)</h3>
+                    <ol>
+                        <li>Print the top 10 most frequent words with their probability of appearance</li>
+                        <li>Get rid of special characters (.,:!?')</li>
+                        <li>Identify the transformations and the actions in your script</li>
+                        <li>How many times are the transformations evaluated? (Hint: it depends)</li>
+                        <li>Can you reduce this number? (Hint: check out "persist")</li>
+                    </ol>
+                </section>
+                <section>
+                    <h3>TODO (intermediate)</h3>
+                    <ol>
+                        <li>Print the top 10 words from the <i>Iliad</i> that have "most disappeared" in <i>The Odyssey</i> (Hint: you need to understand "join")</li>
+                        <li>Do the same by swapping the <i>Iliad</i> and <i>The Odyssey</i></li>
+                        <li>Improve your script by getting rid of stopwords:
+                            <pre><code class="python">from nltk.corpus import stopwords
+english_stop_words = stopwords.words("english")</code></pre>
+                        </li>
+                        <li>Use the Spark UI (http://localhost:4040) to make your script faster</li>
+                    </ol>
+                </section>
+                <section>
+                    <h3>Questions?</h3>
+                    <p><i class="fa fa-envelope"></i> <a class="getintouch"></a></p>
+
+                    <h3>Going further</h3>
+                    <p><i class="fa fa-graduation-cap"></i> <a href="https://openclassrooms.com/courses/realisez-des-calculs-distribues-sur-des-donnees-massives">Cours Openclassrooms :</a> <i>Réalisez des calculs distribués sur des données massives</i> (Behmo &amp; Hudelot)</p>
+                    <p><i class="fa fa-video-camera"></i> Videos : <a href="https://dataarchitect.minutebutterfly.com/">https://dataarchitect.minutebutterfly.com/</a></p>
+                </section>
+            </div>
+        </div>
+
+        <script src="static/js/reveal.js"></script>
+        <script src="static/js/jquery-3.2.1.min.js"></script>
+        <script src="static/js/highlight.min.js"></script>
+        <script>
+            Reveal.initialize({
+                controls: false,
+                history: true,
+                transition: 'fade'
+            });
+        </script>
+        <script>
+            $(document).ready(function() {
+                var email = "centralesupelec";
+                email += "@";
+                email += "behmo.com";
+                var addr = "mail";
+                addr += "to";
+                addr += ":";
+                addr += email;
+                addr += "?Subject=Help!";
+                $(".getintouch").prop("href", encodeURI(addr));
+                $(".getintouch").text(email);
+            });
+        </script>
+        <script>hljs.initHighlightingOnLoad();</script>
+    </body>
+</html>
