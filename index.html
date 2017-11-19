@@ -118,23 +118,22 @@ $ tar xzf spark-2.2.0-bin-hadoop2.7.tgz</code></pre>
                     <h3>Installation (from VM)</h3>
                     <ul>
                         <li>Go to Google Drive/Spark</li>
-                        <li>Download spark-vm.tar.gz (1.2 Gb)</li>
-                        <li>Uncompress</li>
-                        <li>README</li>
-                        <li><pre><code>$ vagrant up</code></pre></li>
-                        <li><pre><code>$ vagrant ssh</code></pre></li>
+                        <li>Download bigbox.7z (7.1 Gb)</li>
+                        <li>Uncompress with 7zip</li>
+                        <li>Import Bigbox.ovf file in Virtualbox</li>
                     </ul>
-
                 </section>
 
                 <section>
                     <h3>Data download</h3>
+                    <pre><code class="shell">$ cd ~/work/</code></pre>
                     <pre><code class="shell">$ wget http://classics.mit.edu/Homer/iliad.mb.txt
 $ wget http://classics.mit.edu/Homer/odyssey.mb.txt</code></pre>
                 </section>
 
                 <section>
                     <h3>Python Shell</h3>
+                    <pre><code class="shell">$ cd ~/work/spark-2.2.0-bin-hadoop2.7/</code></pre>
                     <pre><code class="shell">$ ./bin/pyspark
 Python 2.7.12 (default, Nov 19 2016, 06:48:10)
 >>></code></pre>
@@ -293,6 +292,129 @@ english_stop_words = stopwords.words("english")</code></pre>
                     <h3>Going further</h3>
                     <p><i class="fa fa-graduation-cap"></i> <a href="https://openclassrooms.com/courses/realisez-des-calculs-distribues-sur-des-donnees-massives">Cours Openclassrooms :</a> <i>Réalisez des calculs distribués sur des données massives</i> (Behmo &amp; Hudelot)</p>
                     <p><i class="fa fa-video-camera"></i> Videos : <a href="https://dataarchitect.minutebutterfly.com/">https://dataarchitect.minutebutterfly.com/</a></p>
+                </section>
+
+                <!--Part 2-->
+                <section>
+                    <h2>Calculs Distribués avec Apache Spark</h2>
+                    <h4>Architectures distribuées et machine learning</h4>
+                    <p><a href="https://minutebutterfly.com">Régis Behmo</a><br>
+                    <a href="https://github.com/regisb"><i class="fa fa-github"></i></a>
+                    <a href="https://stackoverflow.com/users/356528/r%c3%a9gis-b?tab=profile"><i class="fa fa-stack-overflow"></i></a>
+                    regisb<br></p>
+                    <p>CentraleSupelec, 20 novembre 2017</p>
+                    <p>Slides: <a href="https://regisb.github.io/centralesupelec-2017">https://regisb.github.io/centralesupelec-2017</a></p>
+                </section>
+                <section>
+                    <h3>Part 1 homework</h3>
+                    <p><a href="https://github.com/regisb/centralesupelec-2017/blob/master/homework/iliad_odyssey.py">https://github.com/regisb/centralesupelec-2017/blob/master/homework/iliad_odyssey.py</a></p>
+                </section>
+                <section data-background-image="static/img/distributed-simple.svg" data-background-size="contain"></section>
+                <section>
+                    <h3>Configuration: launch Spark cluster</h3>
+                    <p>Launch one master:</p>
+                    <pre><code class="shell">./sbin/start-master.sh --host 192.168.1.<span class="orange">M</span> --port 7077</code></pre>
+                    <p>Launch multiple slaves:</p>
+                    <pre><code class="shell">./sbin/start-slave.sh --host 0.0.0.0 spark://192.168.1.<span class="orange">M</span>:7077</code></pre>
+                </section>
+                <section>
+                    <h3>Spark shell</h3>
+                    <pre><code class="shell">./bin/pyspark --master spark://192.168.1.<span class="orange">M</span>:7077</code></pre>
+                </section>
+                <section>
+                    <h3>Launching jobs</h3>
+                    <pre><code class="shell">./bin/spark-submit --master spark://192.168.1.<span class="orange">M</span>:7077 myscript.py</code></pre>
+                </section>
+                <section>
+                    <h3>Configuration: resource allocation</h3>
+                    <p>Slave:</p>
+                    <pre><code class="shell">./sbin/start-slave.sh --host 0.0.0.0 <span class="orange">--cores 2 --memory 512m</span> spark://192.168.1.<span class="orange">M</span>:7077</code></pre>
+                </section>
+                <section>
+                    <h3>Configuration: resource allocation</h3>
+                    <p>Spark shell:</p>
+                    <pre><code class="shell">./bin/pyspark --master spark://192.168.1.M:7077 \
+    <span class="orange">--total-executor-cores 2 --executor-memory 512m</span></code></pre>
+                    <p>Spark script:</p>
+                    <pre><code class="shell">./bin/spark-submit --master spark://192.168.1.M:7077 \
+    <span class="orange">--total-executor-cores 2 --executor-memory 512m</span> myscript.py</code></pre>
+                </section>
+                <section>
+                    <h3>Configuration: resource allocation</h3>
+                    <p>Application (optional):</p>
+                    <pre><code class="python">from pyspark import SparkConf
+conf = SparkConf()
+conf.set("spark.cores.max", 2)
+conf.set("spark.executor.memory", "512m")
+sc = SparkContext(conf=conf)</code></pre>
+                </section>
+                <section>
+                    <h3>Data loading</h3>
+                    <pre><code class="python">sc.textFile("/home/student/work/iliad.mb.txt")</code></pre>
+                    <pre class="fragment"><code class="python">sc.textFile("hdfs://192.168.1.101:9000/data/iliad.mb.txt")
+sc.textFile("hdfs://192.168.1.101:9000/data/blogs/raw.txt")
+sc.textFile("hdfs://192.168.1.101:9000/data/blogs/raw1000.txt")</code></pre>
+                </section>
+                <section>
+                    <h3>Data loading</h3>
+                    <pre><code class="shell">$ ./bin/hdfs dfs -fs hdfs://192.168.1.101:9000 -ls /data
+drwxr-xr-x   - regis supergroup          0 2017-11-18 20:44 /data/blogs
+-rw-r--r--   3 regis supergroup  691239883 2017-11-19 09:11 /data/enwik9-text
+-rw-r--r--   3 regis supergroup     808298 2017-11-18 22:28 /data/iliad.mb.txt</code></pre>
+                    <pre><code class="shell">$ ./bin/hdfs dfs -fs hdfs://192.168.1.101.1:9000 -copyToLocal /data/enwik9-text .</code></pre>
+                </section>
+                <section>
+                    <h3>Spark cluster</h3>
+                    <img src="static/img/distributed-simple.svg">
+                </section>
+                <section>
+                    <h3>HDFS cluster</h3>
+                    <img src="static/img/distributed-simple-hdfs.svg">
+                </section>
+                <section data-background-image="static/img/spark-hdfs.svg" data-background-size="contain"></section>
+                <section>
+                    <h3>Configuration: HDFS</h3>
+                    <p>Launch one namenode:</p>
+                    <pre><code class="shell">./bin/hdfs namenode -fs hdfs://192.168.1.<span class="orange">N</span>:9000</code></pre>
+                    <p>Launch multiple datanodes:</p>
+                    <pre><code class="shell">./bin/hdfs datanode -fs hdfs://192.168.1.<span class="orange">N</span>:9000</code></pre>
+                </section>
+                <section>
+                    <h3>Local configuration</h3>
+                    <p>Wifi SSID: "Spark CentraleSupelec" (No password)</p>
+                    <p>Obtain your IP address: <code>ifconfig</code> (I'm at 192.168.1.101)</p>
+                    <p>Virtualbox:</p>
+                    <ul>
+                        <li>Adjust your RAM/CPU</li>
+                        <li>Check network settings: "Bridged Adapter" &#8594; "wlan0"</li>
+                    </ul>
+                </section>
+                <section>
+                    <h3>DEBUG</h3>
+                    <ul>
+                        <li><a href="http://localhost:8080">http://localhost:8080</a> = Spark master UI</li>
+                        <li><a href="http://localhost:4040">http://localhost:4040</a> = Spark application UI</li>
+                        <li><a href="http://localhost:50070">http://localhost:50070</a> = HDFS namenode UI</li>
+                    </ul>
+                </section>
+                <section>
+                    <h3>TODO (warmup)</h3>
+                    <ol>
+                        <li>Create a cluster of 4-6 Spark nodes</li>
+                        <li>If possible, launch a couple HDFS datanodes</li>
+                        <li>Launch wordcount.py on <code>hdfs://192.168.1.101:9000/data/iliad.mb.txt</code></li>
+                        <li>Launch wordcount.py on <code>hdfs://192.168.1.101:9000/data/blogs/raw.txt</code></li>
+                        <li>Launch two jobs at the same time. Make them run at the same time (Hint: check resource allocation)</li>
+                        <li>What happens when a Spark node is brutally shutdown?</li>
+                    </ol>
+                </section>
+                <section>
+                    <h3>TODO (intermediate)</h3>
+                    <ol>
+                        <li>What is Word2Vec?</li>
+                        <li>Create a Word2Vec model of the Iliad (Hint: it's better to have each paragraph on a single line, see <code>hdfs://192.168.1.101:9000/data/iliad.oneline.txt</code>)</li>
+                        <li>Who is Achilles + (Priam - Hector)?</li>
+                    </ol>
                 </section>
             </div>
         </div>
