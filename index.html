@@ -285,14 +285,6 @@ english_stop_words = stopwords.words("english")</code></pre>
                         <li>Use the Spark UI (http://localhost:4040) to make your script faster</li>
                     </ol>
                 </section>
-                <section>
-                    <h3>Questions?</h3>
-                    <p><i class="fa fa-envelope"></i> <a class="getintouch"></a></p>
-
-                    <h3>Going further</h3>
-                    <p><i class="fa fa-graduation-cap"></i> <a href="https://openclassrooms.com/courses/realisez-des-calculs-distribues-sur-des-donnees-massives">Cours Openclassrooms :</a> <i>Réalisez des calculs distribués sur des données massives</i> (Behmo &amp; Hudelot)</p>
-                    <p><i class="fa fa-video-camera"></i> Videos : <a href="https://dataarchitect.minutebutterfly.com/">https://dataarchitect.minutebutterfly.com/</a></p>
-                </section>
 
                 <!--Part 2-->
                 <section>
@@ -316,6 +308,7 @@ english_stop_words = stopwords.words("english")</code></pre>
                     <pre><code class="shell">./sbin/start-master.sh --host 192.168.1.<span class="orange">M</span> --port 7077</code></pre>
                     <p>Launch multiple slaves:</p>
                     <pre><code class="shell">./sbin/start-slave.sh --host 0.0.0.0 spark://192.168.1.<span class="orange">M</span>:7077</code></pre>
+                    <p>(prefix with <code>SPARK_NO_DAEMONIZE=1</code> to launch workers in the foreground)
                 </section>
                 <section>
                     <h3>Spark shell</h3>
@@ -416,6 +409,199 @@ drwxr-xr-x   - regis supergroup          0 2017-11-18 20:44 /data/blogs
                         <li>Who is Achilles + (Priam - Hector)?</li>
                     </ol>
                 </section>
+
+                <!--Part 3-->
+                <section>
+                    <h2>Calculs Distribués avec Apache Spark</h2>
+                    <h4>Traitement de données temps réel</h4>
+                    <p><a href="https://minutebutterfly.com">Régis Behmo</a><br>
+                    <a href="https://github.com/regisb"><i class="fa fa-github"></i></a>
+                    <a href="https://stackoverflow.com/users/356528/r%c3%a9gis-b?tab=profile"><i class="fa fa-stack-overflow"></i></a>
+                    regisb<br></p>
+                    <p>CentraleSupelec, 27 novembre 2017</p>
+                    <p>Slides: <a href="https://regisb.github.io/centralesupelec-2017">https://regisb.github.io/centralesupelec-2017</a></p>
+                </section>
+                <section>
+                    <h3>Part 2 homework</h3>
+                    <p><a href="https://github.com/regisb/centralesupelec-2017/blob/master/homework/word2vec.py">https://github.com/regisb/centralesupelec-2017/blob/master/homework/word2vec.py</a></p>
+                </section>
+                <section>
+                    <pre><code class="python">from pyspark import SparkContext
+from pyspark.mllib.feature import Word2Vec
+
+sc = SparkContext()
+rdd = sc.textFile("hdfs://192.168.1.101:9000/data/iliad.oneline.txt")\
+    .map(lambda line: line.strip().split())\
+    .map(lambda words: [w.strip(",.:;'\"-?!") for w in words])\
+    .map(lambda words: [w for w in words if w]).filter(lambda s: s)
+model = Word2Vec().setSeed(1).setVectorSize(200).fit(rdd)
+vectors = model.getVectors()
+
+def minus(vec1, vec2):
+    return [v1 - v2 for v1, v2 in zip(vec1, vec2)]
+def plus(vec1, vec2):
+    return [v1 + v2 for v1, v2 in zip(vec1, vec2)]
+
+synonyms = model.findSynonyms(plus(
+    minus(vectors["Priam"], vectors["Hector"]),
+    vectors["Achilles"]), 10)
+print(list(synonyms))</code></pre>
+                </section>
+                <section>
+                    <h3>Priam - Hector + Achilles</h3>
+                    <p>(Peleus is to Achilles what Priam is to Hector)</p>
+                    <pre><code>[('Priam', 0.94304829835891724),                                                
+ ('Atreus', 0.88183891773223877),
+ ('Saturn', 0.87939071655273438),
+ <span class="orange">('Peleus', 0.87464809417724609)</span>,
+ ('Telamon', 0.86552971601486206),
+ ('Laertes', 0.8487703800201416),
+ ('Nestor', 0.83410191535949707),
+ ('noble', 0.81868565082550049),
+ ('Agamemnon', 0.81820404529571533),
+ ('Gerene', 0.81664806604385376)]</code></pre>
+                </section>
+                <section></section>
+                <section>
+                    <h3>Wordcount \o/ (streaming edition)</h3>
+                    <p>Every 1s, print most frequent words</p>
+                    <pre><code class="python">from pyspark import SparkContext
+from pyspark.streaming import StreamingContext
+
+sc = SparkContext()
+ssc = StreamingContext(sc, 1)
+ssc.checkpoint("./checkpoint")
+
+def count_words(counts, current_count):
+    if current_count is None:
+        current_count = 0
+    return current_count + sum(counts)
+
+ssc.socketTextStream("localhost", 9999)\
+    .flatMap(lambda line: line.split()).map(lambda word: (word, 1))\
+    .updateStateByKey(count_words)\
+    .transform(lambda rdd: rdd.sortBy(lambda wc: -wc[1]))\
+    .foreachRDD(lambda rdd: print(rdd.take(10)))
+
+ssc.start()
+ssc.awaitTermination()</code></pre>
+                </section>
+                <section>
+                    <h3>DStreams</h3>
+                    <p>DStream = "Discretized stream" = Sequence of RDDs</p>
+                    <img src="static/img/dstream.png">
+                </section>
+                <section>
+                    <h3>DStreams</h3>
+                    <p>DStream = "Discretized stream" = Sequence of RDDs</p>
+                    <img src="static/img/dstream-lines.png">
+                </section>
+                <section>
+                    <h3>Your first Spark Streaming app</h3>
+                    <p>Make sure checkpoint directory exists</p>
+                    <p>Launch convenient TCP server: <code>nc -lk 9999</code></p>
+                </section>
+                <section>
+                    <h3>Windowing</h3>
+                    <p>"Every 2s, aggregate data that arrived during the past 3s"</p>
+                    <pre><code>.reduceByKeyAndWindow(func, func_inv, 3, 2)</code></pre>
+                    <img src="static/img/windowing.png" style="background-color: white;">
+                </section>
+                <section>
+                    <h3>Wordcount \o/ (sliding window edition)</h3>
+                    <p>Every 1s, print words that were most frequent during the last 5s</p>
+                    <pre><code class="python">from pyspark import SparkContext
+from pyspark.streaming import StreamingContext
+
+sc = SparkContext()
+ssc = StreamingContext(sc, 1)
+ssc.checkpoint("./checkpoint")
+
+ssc.socketTextStream("localhost", 9999)\
+    .flatMap(lambda line: line.split())\
+    .map(lambda word: (word, 1))\
+    .reduceByKeyAndWindow(lambda c1, c2: c1+c2, None, 5, 1)\
+    .transform(lambda rdd: rdd.sortBy(lambda wc: -wc[1]))\
+    .foreachRDD(lambda rdd: print(rdd.take(10)))
+
+ssc.start()
+ssc.awaitTermination()</code></pre>
+                </section>
+                <section>
+                    <h3>Spark UI - streaming tab</h3>
+                    <p><a href="http://localhost:4040/streaming/">http://localhost:4040/streaming/</a></p>
+                    <img src="static/img/sparkui-streaming.png">
+                </section>
+                <section>
+                    <h3>Bikes!</h3>
+                    <p><a href="http://velib.behmo.com">http://velib.behmo.com</a></p>
+                    <p>(data courtesy of <a href="https://developer.jcdecaux.com/">https://developer.jcdecaux.com/</a>)</p>
+                    <pre>{
+    "number":10120,
+    <span class="orange">"name":"10120 - SALENGRO / DESCARTES"</span>,
+    "address":"41 AV. ROGER SALENGRO (VILLEURBANNE)",
+    "position":{"lat":45.7759505002626,"lng":4.87143421497628},
+    "banking":true,
+    "bonus":false,
+    "status":"OPEN",
+    <span class="orange">"contract_name":"Lyon"</span>,
+    "bike_stands":15,
+    "available_bike_stands":6,
+    <span class="orange">"available_bikes":9</span>,
+    <span class="orange">"last_update":1511735128000</span>
+}</pre>
+                </section>
+                <section>
+                    <h3>How to start...</h3>
+                    <pre><code class="python">import json
+from pyspark import SparkContext
+from pyspark.streaming import StreamingContext
+
+sc = SparkContext()
+ssc = StreamingContext(sc, 5)
+
+stream = ssc.socketTextStream("velib.behmo.com", 9999)
+stations = stream.map(lambda station: json.loads(station))\
+    .map(lambda station: (
+        station['contract_name'] + ' ' + station['name'],
+        station['available_bikes']
+    ))\
+    .pprint()
+
+ssc.checkpoint("./checkpoint")
+ssc.start()
+ssc.awaitTermination()
+</code></pre>
+                </section>
+                <section>
+                    <h3>TODO</h3>
+                    <ol>
+                        <li>Create a Spark Streaming app that reads Velib data from velib.behmo.com (port 9999)</li>
+                        <li>Every 5s: print the empty Velib stations</li>
+                        <li>Every 5s: print the Velib stations that have become empty</li>
+                        <li>Every 1 min: print the stations that were most active during the last 5 min (activity = number of bikes borrowed and returned)</li>
+                    </ol>
+                    <p>Send your velib.py file to <a class="getintouch"></a> before Jan 8 2018</p>
+                </section>
+
+                <section>
+                    <h3>Questions?</h3>
+                    <p><i class="fa fa-envelope"></i> <a class="getintouch"></a></p>
+                    <p>Slides: <a href="https://regisb.github.io/centralesupelec-2017">https://regisb.github.io/centralesupelec-2017</a></p>
+
+                    <h3>Going further</h3>
+                    <p><i class="fa fa-graduation-cap"></i> <a href="https://openclassrooms.com/courses/realisez-des-calculs-distribues-sur-des-donnees-massives">Cours Openclassrooms :</a> <i>Réalisez des calculs distribués sur des données massives</i> (Behmo &amp; Hudelot)</p>
+                    <p><i class="fa fa-video-camera"></i> Videos : <a href="https://dataarchitect.minutebutterfly.com/">https://dataarchitect.minutebutterfly.com/</a></p>
+                </section>
+                <!--
+                    - Archi d'une solution temps réel
+                    - Windowing
+                    - updateStateByKey
+                    - Checkpointing
+                    - Monitoring avec Spark UI
+                    - Performance tuning
+                    - Adjust batch size
+                -->
             </div>
         </div>
 
@@ -431,7 +617,7 @@ drwxr-xr-x   - regis supergroup          0 2017-11-18 20:44 /data/blogs
         </script>
         <script>
             $(document).ready(function() {
-                var email = "centralesupelec";
+                var email = "sparkisfantastic";
                 email += "@";
                 email += "behmo.com";
                 var addr = "mail";
